@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.servicecomb.config.ConfigUtil;
+import org.apache.servicecomb.config.priority.PriorityPropertyManager;
 import org.apache.servicecomb.core.BootListener.BootEvent;
 import org.apache.servicecomb.core.BootListener.EventType;
 import org.apache.servicecomb.core.definition.MicroserviceMeta;
@@ -41,6 +42,7 @@ import org.apache.servicecomb.core.provider.consumer.ReferenceConfig;
 import org.apache.servicecomb.core.provider.producer.ProducerProviderManager;
 import org.apache.servicecomb.core.transport.TransportManager;
 import org.apache.servicecomb.foundation.common.event.EventManager;
+import org.apache.servicecomb.foundation.common.log.LogMarkerLeakFixUtils;
 import org.apache.servicecomb.foundation.common.utils.SPIServiceUtils;
 import org.apache.servicecomb.foundation.vertx.VertxUtils;
 import org.apache.servicecomb.serviceregistry.RegistryUtils;
@@ -85,6 +87,8 @@ public class SCBEngine {
 
   private StaticSchemaFactory staticSchemaFactory;
 
+  private PriorityPropertyManager priorityPropertyManager = new PriorityPropertyManager();
+
   private static final SCBEngine INSTANCE = new SCBEngine();
 
   public void setStatus(SCBStatus status) {
@@ -97,6 +101,10 @@ public class SCBEngine {
 
   public static SCBEngine getInstance() {
     return INSTANCE;
+  }
+
+  public PriorityPropertyManager getPriorityPropertyManager() {
+    return priorityPropertyManager;
   }
 
   public EventBus getEventBus() {
@@ -222,6 +230,9 @@ public class SCBEngine {
   private void doInit() throws Exception {
     status = SCBStatus.STARTING;
 
+    // fix log4j2 leak marker problem
+    LogMarkerLeakFixUtils.fix();
+
     eventBus.register(this);
 
     consumerProviderManager.setAppManager(RegistryUtils.getServiceRegistry().getAppManager());
@@ -292,15 +303,22 @@ public class SCBEngine {
 
     //Step 6: destroy config center source
     ConfigUtil.destroyConfigCenterConfigurationSource();
+    priorityPropertyManager.close();
 
     //Step 7: notify all component do clean works via AFTER_CLOSE Event
     safeTriggerEvent(EventType.AFTER_CLOSE);
   }
 
   private void validAllInvocationFinished() throws InterruptedException {
+    long start = System.currentTimeMillis();
     while (true) {
-      if (invocationFinishedCounter.get() == invocationStartedCounter.get()) {
+      long remaining = invocationStartedCounter.get() - invocationFinishedCounter.get();
+      if (remaining == 0) {
         return;
+      }
+
+      if (System.currentTimeMillis() - start > TimeUnit.SECONDS.toMillis(30)) {
+        LOGGER.error("wait for all requests timeout, abandon waiting, remaining requests: {}.", remaining);
       }
       TimeUnit.SECONDS.sleep(1);
     }

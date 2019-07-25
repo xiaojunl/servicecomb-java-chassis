@@ -20,9 +20,10 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <version>1.2.0-SNAPSHOT</version>
+  <version>1.3.0-SNAPSHOT</version>
   <groupId>org.apache.servicecomb.tests</groupId>
   <artifactId>it-producer-deploy-springboot2-standalone</artifactId>
+  <name>Java Chassis::IT::SpringBoot2 Standalone</name>
 
   <dependencyManagement>
     <dependencies>
@@ -92,7 +93,6 @@
               <!-- Skip the source files which are forked from vertx -->
               <exclude>**/io/vertx/ext/web/impl/MimeTypesUtils.java</exclude>
               <exclude>**/java/org/apache/servicecomb/transport/rest/vertx/RestBodyHandler.java</exclude>
-              <exclude>**/java/org/apache/servicecomb/foundation/vertx/stream/PumpImplEx.java</exclude>
               <!--Skip protobuf generated file-->
               <exclude>**/java/org/apache/servicecomb/foundation/protobuf/internal/model/ProtobufRoot.java</exclude>
             </excludes>

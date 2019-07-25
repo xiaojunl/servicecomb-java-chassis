@@ -15,29 +15,28 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-
 <!--this is sample configuration, please modify as your wish-->
-
 <configuration>
   <Properties>
-    <Property name="log_path">./samples/use-log4j2-sample/target/log/</Property>
+    <Property name="log_path">./target/log/</Property>
   </Properties>
-
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT">
-      <PatternLayout pattern="[%d][%t][%p][%c:%L] %m%n"/>
+      <PatternLayout pattern="[%d][%p][%t][%F][%marker]%m %l%n"/>
     </Console>
-    <RollingFile name="DailyRollingFile" fileName="${log_path}/output.log"
-      filePattern="${log_path}/zcrTest%d{yyyy-MM-dd}.log">
-      <PatternLayout pattern="[%d][%t][%p][%c:%L] %m%n"/>
-      <TimeBasedTriggeringPolicy interval="1"/>
-      <SizeBasedTriggeringPolicy size="10 MB"/>
-    </RollingFile>
+    <RollingRandomAccessFile name="RollingRandomAccessFile" fileName="${log_path}/output.log"
+      filePattern="${log_path}/log4j2Sample-%d{yyyy-MM-dd}-%i.log">
+      <PatternLayout pattern="[%d][%p][%t][%F][%marker]%m %l%n"/>
+      <Policies>
+        <SizeBasedTriggeringPolicy size="200 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="99"/>
+    </RollingRandomAccessFile>
   </Appenders>
   <Loggers>
     <Root level="info">
       <AppenderRef ref="Console"/>
-      <AppenderRef ref="DailyRollingFile"/>
+      <AppenderRef ref="RollingRandomAccessFile"/>
     </Root>
   </Loggers>
 </configuration>

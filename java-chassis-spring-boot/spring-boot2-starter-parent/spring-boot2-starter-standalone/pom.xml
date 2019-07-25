@@ -22,11 +22,12 @@
   <parent>
     <artifactId>spring-boot2-starter-parent</artifactId>
     <groupId>org.apache.servicecomb</groupId>
-    <version>1.2.0-SNAPSHOT</version>
+    <version>1.3.0-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>spring-boot2-starter-standalone</artifactId>
+  <name>Java Chassis::Spring Boot2 Starter::Standalone</name>
 
   <dependencies>
     <dependency>
@@ -40,7 +41,7 @@
 
     <!--ConditionEvaluationReportLoggingListener need in autoconfigure-->
     <dependency>
-      <groupId>org.hibernate</groupId>
+      <groupId>org.hibernate.validator</groupId>
       <artifactId>hibernate-validator</artifactId>
     </dependency>
 

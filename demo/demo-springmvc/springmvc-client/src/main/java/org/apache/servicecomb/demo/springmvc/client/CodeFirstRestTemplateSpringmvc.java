@@ -120,11 +120,11 @@ public class CodeFirstRestTemplateSpringmvc extends CodeFirstRestTemplate {
   private void testUpload(RestTemplate template, String cseUrlPrefix) throws IOException {
     String file1Content = "hello world";
     File file1 = File.createTempFile("测 试", ".txt");
-    FileUtils.writeStringToFile(file1, file1Content);
+    FileUtils.writeStringToFile(file1, file1Content, StandardCharsets.UTF_8, false);
 
     String file2Content = " bonjour";
     File someFile = File.createTempFile("upload2", ".txt");
-    FileUtils.writeStringToFile(someFile, file2Content);
+    FileUtils.writeStringToFile(someFile, file2Content, StandardCharsets.UTF_8, false);
 
     String expect = String.format("%s:%s:%s\n"
             + "%s:%s:%s",

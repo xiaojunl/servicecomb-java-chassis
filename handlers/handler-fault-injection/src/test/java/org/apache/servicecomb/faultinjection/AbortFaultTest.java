@@ -70,7 +70,7 @@ public class AbortFaultTest {
 
   @AfterClass
   public static void classTeardown() {
-    VertxUtils.closeVertxByName("faultinjectionTest");
+    VertxUtils.blockCloseVertxByName("faultinjectionTest");
   }
 
   @Test
@@ -131,7 +131,7 @@ public class AbortFaultTest {
   @Test
   public void injectFaultNoPercentageConfig() {
     ArchaiusUtils
-        .updateProperty("servicecomb.governance.Consumer._global.policy.fault.protocols.rest.abort.percent", null);
+        .setProperty("servicecomb.governance.Consumer._global.policy.fault.protocols.rest.abort.percent", null);
 
     assertNull(DynamicProperty
         .getInstance("servicecomb.governance.Consumer._global.policy.fault.protocols.rest.abort.percent")

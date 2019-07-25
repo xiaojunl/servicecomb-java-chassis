@@ -91,7 +91,7 @@ public class TestGroupExecutor {
     Assert.assertEquals(100, groupExecutor.maxThreads);
 
     LogCollector collector = new LogCollector();
-    ArchaiusUtils.setProperty(GroupExecutor.KEY_THREAD, 200);
+    ArchaiusUtils.setProperty(GroupExecutor.KEY_OLD_MAX_THREAD, 200);
     groupExecutor.initConfig();
     Assert.assertEquals(200, groupExecutor.maxThreads);
     Assert.assertEquals(
@@ -120,12 +120,7 @@ public class TestGroupExecutor {
   @Test
   public void testGroupExecutor() {
     groupExecutor.init();
-    groupExecutor.execute(new Runnable() {
-
-      @Override
-      public void run() {
-
-      }
+    groupExecutor.execute(() -> {
     });
     Map<Long, Executor> threadExecutorMap = Deencapsulation.getField(groupExecutor, "threadExecutorMap");
     Assert.assertEquals(true, (threadExecutorMap.size() > 0));
@@ -134,12 +129,7 @@ public class TestGroupExecutor {
     Assert.assertEquals(true, (executorList.size() > 1));
 
     ReactiveExecutor oReactiveExecutor = new ReactiveExecutor();
-    oReactiveExecutor.execute(new Runnable() {
-      @Override
-      public void run() {
-        strThreadTest = "thread Ran";
-      }
-    });
+    oReactiveExecutor.execute(() -> strThreadTest = "thread Ran");
     oReactiveExecutor.close();
     Assert.assertEquals("thread Ran", strThreadTest);
   }

@@ -41,6 +41,7 @@ import org.springframework.util.StringUtils;
 import com.google.inject.util.Types;
 
 import io.swagger.models.HttpMethod;
+import io.swagger.models.Model;
 import io.swagger.models.Operation;
 import io.swagger.models.Path;
 import io.swagger.models.Response;
@@ -359,13 +360,13 @@ public class OperationGenerator {
     }
   }
 
-  // check whether is ArrayList , LinkedArrayList ...  or not
+  // check whether is ArrayList , LinkedList ...  or not
   private Type checkAndGetType(Type type) {
     if (ParameterizedType.class.isAssignableFrom(type.getClass())) {
       ParameterizedType targetType = (ParameterizedType) type;
       Class<?> targetCls = (Class<?>) targetType.getRawType();
       if (List.class.isAssignableFrom(targetCls)) {
-        return Types.newParameterizedType(List.class, (Class<?>) targetType.getActualTypeArguments()[0]);
+        return Types.newParameterizedType(List.class, targetType.getActualTypeArguments()[0]);
       }
     }
     return null;
@@ -400,30 +401,30 @@ public class OperationGenerator {
     if (operation.getResponses() != null) {
       Response successResponse = operation.getResponses().get(SwaggerConst.SUCCESS_KEY);
       if (successResponse != null) {
-        if (successResponse.getSchema() == null) {
+        if (successResponse.getResponseSchema() == null) {
           // 标注已经定义了response，但是是void，这可能是在标注上未定义
           // 根据函数原型来处理response
-          Property property = createResponseProperty();
-          successResponse.setSchema(property);
+          Model model = createResponseModel();
+          successResponse.setResponseSchema(model);
         }
         return;
       }
     }
 
-    Property property = createResponseProperty();
+    Model model = createResponseModel();
     Response response = new Response();
-    response.setSchema(property);
+    response.setResponseSchema(model);
     operation.addResponse(SwaggerConst.SUCCESS_KEY, response);
   }
 
-  protected Property createResponseProperty() {
+  protected Model createResponseModel() {
     Type responseType = providerMethod.getReturnType();
     if (ReflectionUtils.isVoid(responseType)) {
       return null;
     }
 
     ResponseTypeProcessor processor = context.findResponseTypeProcessor(responseType);
-    return processor.process(this);
+    return processor.process(this, providerMethod.getGenericReturnType());
   }
 
   public Method getProviderMethod() {

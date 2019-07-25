@@ -19,6 +19,8 @@ package org.apache.servicecomb.swagger.generator.core.unittest;
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.servicecomb.swagger.generator.core.CompositeSwaggerGeneratorContext;
@@ -60,7 +62,7 @@ public final class UnitTestSwaggerUtils {
     }
 
     try {
-      return IOUtils.toString(url);
+      return IOUtils.toString(url, StandardCharsets.UTF_8);
     } catch (IOException e) {
       return e.getMessage();
     }
@@ -91,14 +93,15 @@ public final class UnitTestSwaggerUtils {
     generator.replaceMethods(methods);
 
     Swagger swagger = generator.generate();
-
-    String expectSchema = loadExpect(resPath);
-    Swagger expectSwagger = parse(expectSchema);
-
     String schema = pretty(swagger);
-    swagger = parse(schema);
 
-    if (swagger != null && !swagger.equals(expectSwagger)) {
+    String expectSchema = loadExpect(resPath).replace("\r\n", "\n");
+    int offset = expectSchema.indexOf("---\nswagger: \"2.0\"");
+    if (offset > 0) {
+      expectSchema = expectSchema.substring(offset);
+    }
+
+    if (!Objects.equals(expectSchema, schema)) {
       Assert.assertEquals(expectSchema, schema);
     }
 

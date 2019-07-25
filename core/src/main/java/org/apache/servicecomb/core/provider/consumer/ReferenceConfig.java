@@ -23,6 +23,7 @@ import org.apache.servicecomb.core.definition.MicroserviceVersionMeta;
 import org.apache.servicecomb.serviceregistry.consumer.AppManager;
 import org.apache.servicecomb.serviceregistry.consumer.MicroserviceVersion;
 import org.apache.servicecomb.serviceregistry.consumer.MicroserviceVersionRule;
+import org.apache.servicecomb.serviceregistry.version.VersionRuleUtils;
 
 public class ReferenceConfig {
   private MicroserviceVersionRule microserviceVersionRule;
@@ -33,6 +34,8 @@ public class ReferenceConfig {
   }
 
   public ReferenceConfig(AppManager appManager, String microserviceName, String versionRule, String transport) {
+    versionRule = VersionRuleUtils.getOrCreate(versionRule).getVersionRule();
+
     String appId = new MicroserviceMeta(microserviceName).getAppId();
     this.microserviceVersionRule = appManager.getOrCreateMicroserviceVersionRule(appId,
         microserviceName,
@@ -72,5 +75,9 @@ public class ReferenceConfig {
 
   public void setTransport(String transport) {
     this.transport = transport;
+  }
+
+  public boolean is3rdPartyService() {
+    return microserviceVersionRule.getLatestMicroserviceVersion().getMicroservice().isThirdPartyService();
   }
 }

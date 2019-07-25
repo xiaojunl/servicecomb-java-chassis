@@ -19,6 +19,7 @@ package org.apache.servicecomb.core.definition;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.servicecomb.core.SCBEngine;
 import org.apache.servicecomb.core.unittest.UnitTestMeta;
 import org.apache.servicecomb.foundation.test.scaffolding.config.ArchaiusUtils;
 import org.apache.servicecomb.swagger.extend.annotations.ResponseHeaders;
@@ -30,6 +31,7 @@ import org.junit.Test;
 
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ResponseHeader;
+import mockit.Expectations;
 
 public class TestOperationMeta {
   class Impl {
@@ -92,6 +94,14 @@ public class TestOperationMeta {
 
   @Test
   public void opConfig() {
+    SCBEngine scbEngine = new SCBEngine();
+    new Expectations(SCBEngine.class) {
+      {
+        SCBEngine.getInstance();
+        result = scbEngine;
+      }
+    };
+
     UnitTestMeta meta = new UnitTestMeta();
     SchemaMeta schemaMeta = meta.getOrCreateSchemaMeta(Impl.class);
     OperationMeta operationMeta = schemaMeta.findOperation("test");
@@ -112,12 +122,12 @@ public class TestOperationMeta {
   }
 
   private void restWaitInPool(OperationConfig config) {
-    ArchaiusUtils.updateProperty("servicecomb.Provider.requestWaitInPoolTimeout", null);
-    ArchaiusUtils.updateProperty("servicecomb.Provider.requestWaitInPoolTimeout.perfClient", null);
-    ArchaiusUtils.updateProperty(
+    ArchaiusUtils.setProperty("servicecomb.Provider.requestWaitInPoolTimeout", null);
+    ArchaiusUtils.setProperty("servicecomb.Provider.requestWaitInPoolTimeout.perfClient", null);
+    ArchaiusUtils.setProperty(
         "servicecomb.Provider.requestWaitInPoolTimeout.perfClient.org.apache.servicecomb.core.definition.TestOperationMeta$Impl",
         null);
-    ArchaiusUtils.updateProperty(
+    ArchaiusUtils.setProperty(
         "servicecomb.Provider.requestWaitInPoolTimeout.perfClient.org.apache.servicecomb.core.definition.TestOperationMeta$Impl.test",
         null);
 
@@ -193,5 +203,18 @@ public class TestOperationMeta {
     Assert.assertTrue(config.isSlowInvocationEnabled());
     Assert.assertEquals(2000, config.getMsSlowInvocation());
     Assert.assertEquals(TimeUnit.MILLISECONDS.toNanos(2000), config.getNanoSlowInvocation());
+
+    // new configuration key, has high priority
+    ArchaiusUtils.setProperty("servicecomb.metrics.Consumer.invocation.slow.enabled", false);
+    ArchaiusUtils.setProperty("servicecomb.metrics.Consumer.invocation.slow.msTime", 3000);
+    Assert.assertFalse(config.isSlowInvocationEnabled());
+    Assert.assertEquals(3000, config.getMsSlowInvocation());
+    Assert.assertEquals(TimeUnit.MILLISECONDS.toNanos(3000), config.getNanoSlowInvocation());
+
+    ArchaiusUtils.setProperty("servicecomb.metrics.Consumer.invocation.slow.enabled.perfClient", true);
+    ArchaiusUtils.setProperty("servicecomb.metrics.Consumer.invocation.slow.msTime.perfClient", 4000);
+    Assert.assertTrue(config.isSlowInvocationEnabled());
+    Assert.assertEquals(4000, config.getMsSlowInvocation());
+    Assert.assertEquals(TimeUnit.MILLISECONDS.toNanos(4000), config.getNanoSlowInvocation());
   }
 }

@@ -79,7 +79,7 @@ public class PropertyAdapter implements SwaggerTypeAdapter {
   }
 
   @Override
-  public boolean isObject() {
+  public boolean isJavaLangObject() {
     return property instanceof ObjectProperty;
   }
 }

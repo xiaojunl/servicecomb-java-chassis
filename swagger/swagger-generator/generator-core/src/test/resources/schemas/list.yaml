@@ -57,4 +57,3 @@ definitions:
         type: "array"
         items:
           $ref: "#/definitions/User"
-

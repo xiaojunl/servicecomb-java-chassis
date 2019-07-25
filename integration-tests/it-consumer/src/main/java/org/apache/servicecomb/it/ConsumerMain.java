@@ -24,7 +24,9 @@ import org.apache.servicecomb.it.junit.ITJUnitUtils;
 import org.apache.servicecomb.it.schema.TestApiOperation;
 import org.apache.servicecomb.it.testcase.TestAcceptType;
 import org.apache.servicecomb.it.testcase.TestAnnotatedAttribute;
+import org.apache.servicecomb.it.testcase.TestApiOperationOverride;
 import org.apache.servicecomb.it.testcase.TestApiParam;
+import org.apache.servicecomb.it.testcase.TestAsyncInvoke;
 import org.apache.servicecomb.it.testcase.TestChangeTransport;
 import org.apache.servicecomb.it.testcase.TestDataTypePrimitive;
 import org.apache.servicecomb.it.testcase.TestDefaultJsonValueJaxrsSchema;
@@ -35,6 +37,7 @@ import org.apache.servicecomb.it.testcase.TestExceptionConvertEdge;
 import org.apache.servicecomb.it.testcase.TestGenericEdge;
 import org.apache.servicecomb.it.testcase.TestIgnoreMethod;
 import org.apache.servicecomb.it.testcase.TestIgnoreStaticMethod;
+import org.apache.servicecomb.it.testcase.TestOptional;
 import org.apache.servicecomb.it.testcase.TestParamCodec;
 import org.apache.servicecomb.it.testcase.TestParamCodecEdge;
 import org.apache.servicecomb.it.testcase.TestRequestBodySpringMvcSchema;
@@ -125,6 +128,11 @@ public class ConsumerMain {
     ITJUnitUtils.run(TestDefaultJsonValueJaxrsSchema.class);
     ITJUnitUtils.run(TestRestController.class);
     ITJUnitUtils.runWithRest(TestRestController.class);
+
+    ITJUnitUtils.runWithHighwayAndRest(TestAsyncInvoke.class);
+
+    ITJUnitUtils.runWithHighwayAndRest(TestOptional.class);
+    ITJUnitUtils.runWithHighwayAndRest(TestApiOperationOverride.class);
   }
 
   interface ITTask {

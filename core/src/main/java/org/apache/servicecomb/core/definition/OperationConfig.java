@@ -45,10 +45,12 @@ public class OperationConfig {
       ".${schema}",
       "");
 
-  @InjectProperty(keys = "${consumer-producer}.invocation.slow.enabled${op-priority}", defaultValue = "false")
+  @InjectProperty(keys = {"metrics.${consumer-producer}.invocation.slow.enabled${op-priority}",
+      "${consumer-producer}.invocation.slow.enabled${op-priority}"}, defaultValue = "false")
   private boolean slowInvocationEnabled;
 
-  @InjectProperty(keys = {"${consumer-producer}.invocation.slow.msTime${op-priority}"}, defaultValue = "1000")
+  @InjectProperty(keys = {"metrics.${consumer-producer}.invocation.slow.msTime${op-priority}",
+      "${consumer-producer}.invocation.slow.msTime${op-priority}"}, defaultValue = "1000")
   private long msSlowInvocation;
 
   private long nanoSlowInvocation;
@@ -58,6 +60,12 @@ public class OperationConfig {
    */
   @InjectProperty(keys = {"request.${op-any-priority}.timeout", "request.timeout"}, defaultValue = "30000")
   private long msRequestTimeout;
+
+  /**
+   * whether to remove certain headers from the 3rd party invocations
+   */
+  @InjectProperty(keys = {"request.clientRequestHeaderFilterEnabled${consumer-op-priority}"}, defaultValue = "true")
+  private boolean clientRequestHeaderFilterEnabled = true;
 
   /**
    * producer wait in thread pool timeout
@@ -129,5 +137,13 @@ public class OperationConfig {
 
   public long getNanoRestRequestWaitInPoolTimeout() {
     return nanoRestRequestWaitInPoolTimeout;
+  }
+
+  public boolean isClientRequestHeaderFilterEnabled() {
+    return clientRequestHeaderFilterEnabled;
+  }
+
+  public void setClientRequestHeaderFilterEnabled(boolean clientRequestHeaderFilterEnabled) {
+    this.clientRequestHeaderFilterEnabled = clientRequestHeaderFilterEnabled;
   }
 }

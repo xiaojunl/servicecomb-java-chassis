@@ -25,17 +25,35 @@ import org.apache.servicecomb.core.Endpoint;
 import org.apache.servicecomb.core.Invocation;
 import org.apache.servicecomb.core.definition.OperationMeta;
 import org.apache.servicecomb.foundation.common.net.URIEndpointObject;
+import org.apache.servicecomb.foundation.vertx.VertxUtils;
 import org.apache.servicecomb.swagger.invocation.AsyncResponse;
+import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import mockit.Mock;
 import mockit.MockUp;
 
 public class TestHighwayTransport {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TestHighwayTransport.class);
 
   private HighwayTransport transport = new HighwayTransport();
+
+  @BeforeClass
+  public static void setup() {
+    VertxUtils.blockCloseVertxByName("transport");
+    Thread.getAllStackTraces().keySet().forEach(t->LOGGER.info("before: {}", t.getName()));
+  }
+
+  @AfterClass
+  public static void teardown() {
+    VertxUtils.blockCloseVertxByName("transport");
+    Thread.getAllStackTraces().keySet().forEach(t->LOGGER.info("after: {}", t.getName()));
+  }
 
   @Test
   public void testGetInstance() {
@@ -50,6 +68,7 @@ public class TestHighwayTransport {
     } catch (Exception e) {
       status = false;
     }
+
     Assert.assertTrue(status);
   }
 

@@ -26,6 +26,7 @@ import org.apache.servicecomb.common.rest.codec.param.RestClientRequestImpl;
 import org.apache.servicecomb.common.rest.definition.RestOperationMeta;
 import org.apache.servicecomb.common.rest.filter.HttpClientFilter;
 import org.apache.servicecomb.core.Invocation;
+import org.apache.servicecomb.core.definition.OperationConfig;
 import org.apache.servicecomb.core.definition.OperationMeta;
 import org.apache.servicecomb.core.invocation.InvocationStageTrace;
 import org.apache.servicecomb.foundation.common.http.HttpStatus;
@@ -49,12 +50,19 @@ import org.springframework.util.StringUtils;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.http.HttpConnection;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.RequestOptions;
+import io.vertx.core.net.SocketAddress;
 import io.vertx.core.net.impl.ConnectionBase;
 
 public class RestClientInvocation {
   private static final Logger LOGGER = LoggerFactory.getLogger(RestClientInvocation.class);
+
+  private static final String[] INTERNAL_HEADERS = new String[] {
+      org.apache.servicecomb.core.Const.CSE_CONTEXT,
+      org.apache.servicecomb.core.Const.TARGET_MICROSERVICE
+  };
 
   private HttpClientWithContext httpClientWithContext;
 
@@ -99,38 +107,63 @@ public class RestClientInvocation {
     }
 
     clientRequest.exceptionHandler(e -> {
-      LOGGER.error("Failed to send request to {}.", ipPort.getSocketAddress(), e);
-      fail(e);
+      LOGGER.error(invocation.getMarker(), "Failed to send request, local:{}, remote:{}.",
+          getLocalAddress(), ipPort.getSocketAddress(), e);
+      fail((ConnectionBase) clientRequest.connection(), e);
     });
     clientRequest.connectionHandler(connection -> {
       LOGGER.debug("http connection connected, local:{}, remote:{}.",
-          connection.localAddress(),
-          connection.remoteAddress());
-      connection.closeHandler(v -> {
-        LOGGER.debug("http connection closed, local:{}, remote:{}.",
-            connection.localAddress(),
-            connection.remoteAddress());
-      });
-      connection.exceptionHandler(e -> {
-        LOGGER.info("http connection exception, local:{}, remote:{}.",
-            connection.localAddress(),
-            connection.remoteAddress(),
-            e);
-      });
+          connection.localAddress(), connection.remoteAddress());
+      connection.closeHandler(v ->
+          LOGGER.debug("http connection closed, local:{}, remote:{}.",
+              connection.localAddress(), connection.remoteAddress())
+      );
+      connection.exceptionHandler(e ->
+          LOGGER.info("http connection exception, local:{}, remote:{}.",
+              connection.localAddress(), connection.remoteAddress(), e)
+      );
     });
 
     // 从业务线程转移到网络线程中去发送
     invocation.getInvocationStageTrace().startSend();
     httpClientWithContext.runOnContext(httpClient -> {
-      this.setCseContext();
       clientRequest.setTimeout(operationMeta.getConfig().getMsRequestTimeout());
+      processServiceCombHeaders(invocation, operationMeta);
       try {
         restClientRequest.end();
       } catch (Throwable e) {
-        LOGGER.error("send http request failed,", e);
-        fail(e);
+        LOGGER.error(invocation.getMarker(),
+            "send http request failed, local:{}, remote: {}.", getLocalAddress(), ipPort, e);
+        fail((ConnectionBase) clientRequest.connection(), e);
       }
     });
+  }
+
+  /**
+   * If this is a 3rd party invocation, ServiceComb related headers should be removed by default to hide inner
+   * implementation. Otherwise, the InvocationContext will be set into the request headers.
+   *
+   * @see OperationConfig#isClientRequestHeaderFilterEnabled()
+   * @param invocation  invocation determines whether this is an invocation to 3rd party services
+   * @param operationMeta operationMeta determines whether to remove certain headers and which headers should be removed
+   */
+  private void processServiceCombHeaders(Invocation invocation, OperationMeta operationMeta) {
+    if (invocation.isThirdPartyInvocation() && operationMeta.getConfig().isClientRequestHeaderFilterEnabled()) {
+      for (String internalHeaderName : INTERNAL_HEADERS) {
+        clientRequest.headers().remove(internalHeaderName);
+      }
+      return;
+    }
+    this.setCseContext();
+  }
+
+  private String getLocalAddress() {
+    HttpConnection connection = clientRequest.connection();
+    if (connection == null) {
+      return "not connected";
+    }
+    SocketAddress socketAddress = connection.localAddress();
+    return socketAddress != null ? socketAddress.toString() : "not connected";
   }
 
   private HttpMethod getMethod() {
@@ -150,7 +183,7 @@ public class RestClientInvocation {
         .setURI(path);
 
     HttpMethod method = getMethod();
-    LOGGER.debug("Sending request by rest, method={}, qualifiedName={}, path={}, endpoint={}.",
+    LOGGER.debug(invocation.getMarker(), "Sending request by rest, method={}, qualifiedName={}, path={}, endpoint={}.",
         method,
         invocation.getMicroserviceQualifiedName(),
         path,
@@ -170,21 +203,25 @@ public class RestClientInvocation {
     }
 
     httpClientResponse.exceptionHandler(e -> {
-      LOGGER.error("Failed to receive response from {}.", httpClientResponse.netSocket().remoteAddress(), e);
-      fail(e);
+      LOGGER.error(invocation.getMarker(), "Failed to receive response, local:{}, remote:{}.",
+          getLocalAddress(), httpClientResponse.netSocket().remoteAddress(), e);
+      fail((ConnectionBase) clientRequest.connection(), e);
     });
 
-    clientResponse.bodyHandler(responseBuf -> {
-      processResponseBody(responseBuf);
-    });
+    clientResponse.bodyHandler(this::processResponseBody);
   }
 
   /**
-   *
+   * after this method, connection will be recycled to connection pool
    * @param responseBuf response body buffer, when download, responseBuf is null, because download data by ReadStreamPart
    */
   protected void processResponseBody(Buffer responseBuf) {
+    DefaultHttpSocketMetric httpSocketMetric = (DefaultHttpSocketMetric) ((ConnectionBase) clientRequest.connection())
+        .metric();
+    invocation.getInvocationStageTrace().finishGetConnection(httpSocketMetric.getRequestBeginTime());
+    invocation.getInvocationStageTrace().finishWriteToBuffer(httpSocketMetric.getRequestEndTime());
     invocation.getInvocationStageTrace().finishReceiveResponse();
+
     invocation.getResponseExecutor().execute(() -> {
       try {
         invocation.getInvocationStageTrace().startClientFiltersResponse();
@@ -200,28 +237,25 @@ public class RestClientInvocation {
           }
         }
       } catch (Throwable e) {
-        fail(e);
+        // already collection time from httpSocketMetric
+        // and connection maybe already belongs to other invocation in this time
+        // so set connection to null
+        fail(null, e);
       }
     });
   }
 
   protected void complete(Response response) {
-    DefaultHttpSocketMetric httpSocketMetric = (DefaultHttpSocketMetric) ((ConnectionBase) clientRequest.connection())
-        .metric();
-    invocation.getInvocationStageTrace().finishGetConnection(httpSocketMetric.getRequestBeginTime());
-    invocation.getInvocationStageTrace().finishWriteToBuffer(httpSocketMetric.getRequestEndTime());
-
     invocation.getInvocationStageTrace().finishClientFiltersResponse();
     asyncResp.complete(response);
   }
 
-  protected void fail(Throwable e) {
+  protected void fail(ConnectionBase connection, Throwable e) {
     if (invocation.isFinished()) {
       return;
     }
 
     InvocationStageTrace stageTrace = invocation.getInvocationStageTrace();
-    ConnectionBase connection = (ConnectionBase) clientRequest.connection();
     // connection maybe null when exception happens such as ssl handshake failure
     if (connection != null) {
       DefaultHttpSocketMetric httpSocketMetric = (DefaultHttpSocketMetric) connection.metric();
@@ -239,15 +273,20 @@ public class RestClientInvocation {
     }
 
     stageTrace.finishClientFiltersResponse();
-    asyncResp.fail(invocation.getInvocationType(), e);
+
+    try {
+      asyncResp.fail(invocation.getInvocationType(), e);
+    } catch (Throwable e1) {
+      LOGGER.error(invocation.getMarker(), "failed to invoke asyncResp.fail.", e1);
+    }
   }
 
   protected void setCseContext() {
     try {
       String cseContext = JsonUtils.writeValueAsString(invocation.getContext());
       clientRequest.putHeader(org.apache.servicecomb.core.Const.CSE_CONTEXT, cseContext);
-    } catch (Exception e) {
-      LOGGER.debug("Failed to encode and set cseContext.", e);
+    } catch (Throwable e) {
+      LOGGER.debug(invocation.getMarker(), "Failed to encode and set cseContext.", e);
     }
   }
 

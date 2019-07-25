@@ -18,13 +18,17 @@
 package org.apache.servicecomb.foundation.vertx;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.CountDownLatch;
 
 import javax.xml.ws.Holder;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.servicecomb.foundation.test.scaffolding.config.ArchaiusUtils;
 import org.apache.servicecomb.foundation.vertx.stream.BufferInputStream;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -33,6 +37,7 @@ import io.netty.buffer.Unpooled;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.file.impl.FileResolver;
 
 public class TestVertxUtils {
   @Test
@@ -48,14 +53,40 @@ public class TestVertxUtils {
     latch.await();
 
     Assert.assertEquals(name.value, "ut-vert.x-eventloop-thread-0");
-    VertxUtils.closeVertxByName("ut");
+    VertxUtils.blockCloseVertxByName("ut");
+  }
+
+  @Test
+  public void testCreateVertxWithFileCPResolving() {
+    // Prepare
+    ArchaiusUtils.resetConfig();
+    String cacheDirBase = System.getProperty(FileResolver.CACHE_DIR_BASE_PROP_NAME, ".vertx");
+    File file = new File(cacheDirBase);
+
+    // create .vertx folder
+    FileUtils.deleteQuietly(file);
+    Assert.assertFalse(file.exists());
+    ArchaiusUtils.setProperty(FileResolver.DISABLE_CP_RESOLVING_PROP_NAME, false);
+    VertxUtils.getOrCreateVertxByName("testCreateVertxWithFileCPResolvingFalse", null);
+    Assert.assertTrue(file.exists());
+    VertxUtils.blockCloseVertxByName("testCreateVertxWithFileCPResolvingFalse");
+
+    // don't create .vertx folder
+    FileUtils.deleteQuietly(file);
+    Assert.assertFalse(file.exists());
+    ArchaiusUtils.setProperty(FileResolver.DISABLE_CP_RESOLVING_PROP_NAME, true);
+    VertxUtils.getOrCreateVertxByName("testCreateVertxWithFileCPResolvingTrue", null);
+    Assert.assertFalse(file.exists());
+    VertxUtils.blockCloseVertxByName("testCreateVertxWithFileCPResolvingTrue");
+
+    ArchaiusUtils.resetConfig();
   }
 
   @Test
   public void testVertxUtilsInitNullOptions() {
     Vertx vertx = VertxUtils.init(null);
     Assert.assertNotEquals(null, vertx);
-    vertx.close();
+    VertxUtils.blockCloseVertx(vertx);
   }
 
   @Test
@@ -65,7 +96,7 @@ public class TestVertxUtils {
 
     Vertx vertx = VertxUtils.init(oOptions);
     Assert.assertNotEquals(null, vertx);
-    vertx.close();
+    VertxUtils.blockCloseVertx(vertx);
   }
 
   @Test

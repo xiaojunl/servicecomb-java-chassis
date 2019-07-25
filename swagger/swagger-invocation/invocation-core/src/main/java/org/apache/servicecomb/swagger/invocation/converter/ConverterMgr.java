@@ -118,13 +118,13 @@ public class ConverterMgr {
     return null;
   }
 
-  // check whether is ArrayList , LinkedArrayList ...  or not
+  // check whether is ArrayList , LinkedList ...  or not
   private Type checkAndGetType(Type type) {
     if (ParameterizedType.class.isAssignableFrom(type.getClass())) {
       ParameterizedType targetType = (ParameterizedType) type;
       Class<?> targetCls = (Class<?>) targetType.getRawType();
       if (List.class.isAssignableFrom(targetCls)) {
-        return Types.newParameterizedType(List.class, (Class<?>) targetType.getActualTypeArguments()[0]);
+        return Types.newParameterizedType(List.class, targetType.getActualTypeArguments()[0]);
       }
     }
     return null;

@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 import javax.ws.rs.core.Response.Status;
 import javax.xml.ws.Holder;
@@ -50,6 +51,7 @@ import org.apache.servicecomb.core.provider.consumer.ReferenceConfig;
 import org.apache.servicecomb.foundation.common.event.EventManager;
 import org.apache.servicecomb.foundation.common.utils.JsonUtils;
 import org.apache.servicecomb.foundation.common.utils.SPIServiceUtils;
+import org.apache.servicecomb.foundation.test.scaffolding.exception.RuntimeExceptionWithoutStackTrace;
 import org.apache.servicecomb.foundation.vertx.http.AbstractHttpServletRequest;
 import org.apache.servicecomb.foundation.vertx.http.AbstractHttpServletResponse;
 import org.apache.servicecomb.foundation.vertx.http.HttpServletRequestEx;
@@ -376,7 +378,7 @@ public class TestAbstractRestInvocation {
 
   @Test
   public void invokeFilterException(@Mocked HttpServerFilter filter) {
-    Error error = new Error();
+    Exception error = new RuntimeExceptionWithoutStackTrace();
     new Expectations() {
       {
         filter.enabled();
@@ -438,7 +440,7 @@ public class TestAbstractRestInvocation {
   @Test
   public void sendFailResponseNoProduceProcessor() {
     restInvocation.produceProcessor = null;
-    restInvocation.sendFailResponse(new Error());
+    restInvocation.sendFailResponse(new RuntimeExceptionWithoutStackTrace());
 
     Assert.assertSame(ProduceProcessorManager.JSON_PROCESSOR, restInvocation.produceProcessor);
   }
@@ -507,7 +509,7 @@ public class TestAbstractRestInvocation {
 
       @Override
       protected void sendResponse(Response response) {
-        throw new Error("");
+        throw new RuntimeExceptionWithoutStackTrace();
       }
     };
     initRestInvocation();
@@ -526,7 +528,7 @@ public class TestAbstractRestInvocation {
 
       @Override
       protected void sendResponse(Response response) {
-        throw new Error("");
+        throw new RuntimeExceptionWithoutStackTrace("");
       }
     };
     initRestInvocation();
@@ -612,7 +614,7 @@ public class TestAbstractRestInvocation {
     new Expectations() {
       {
         response.getResult();
-        result = new Error("stop");
+        result = new RuntimeExceptionWithoutStackTrace("stop");
         response.getHeaders();
         result = headers;
       }
@@ -658,7 +660,7 @@ public class TestAbstractRestInvocation {
     new Expectations() {
       {
         response.getResult();
-        result = new Error("stop");
+        result = new RuntimeExceptionWithoutStackTrace("stop");
         response.getHeaders();
         result = headers;
       }
@@ -842,7 +844,7 @@ public class TestAbstractRestInvocation {
     };
 
     Holder<Throwable> result = new Holder<>();
-    Error error = new Error("run on executor");
+    RuntimeException error = new RuntimeExceptionWithoutStackTrace("run on executor");
     restInvocation = new AbstractRestInvocationForTest() {
       @Override
       protected void runOnExecutor() {
@@ -882,12 +884,7 @@ public class TestAbstractRestInvocation {
     restInvocation = new AbstractRestInvocationForTest() {
       @Override
       protected void runOnExecutor() {
-        throw new Error("run on executor");
-      }
-
-      @Override
-      public void sendFailResponse(Throwable throwable) {
-        throw (Error) throwable;
+        throw new RuntimeExceptionWithoutStackTrace("run on executor");
       }
     };
     restInvocation.requestEx = requestEx;
@@ -895,6 +892,38 @@ public class TestAbstractRestInvocation {
 
     // will not throw exception
     restInvocation.scheduleInvocation();
+  }
+
+  @Test
+  public void threadPoolReject(@Mocked OperationMeta operationMeta) {
+    RejectedExecutionException rejectedExecutionException = new RejectedExecutionException("reject");
+    Executor executor = (task) -> {
+      throw rejectedExecutionException;
+    };
+
+    new Expectations() {
+      {
+        restOperation.getOperationMeta();
+        result = operationMeta;
+        operationMeta.getExecutor();
+        result = executor;
+      }
+    };
+
+    Holder<Throwable> holder = new Holder<>();
+    requestEx = new AbstractHttpServletRequestForTest();
+    restInvocation = new AbstractRestInvocationForTest() {
+      @Override
+      public void sendFailResponse(Throwable throwable) {
+        holder.value = throwable;
+      }
+    };
+    restInvocation.requestEx = requestEx;
+    restInvocation.restOperationMeta = restOperation;
+
+    restInvocation.scheduleInvocation();
+
+    Assert.assertSame(rejectedExecutionException, holder.value);
   }
 
   @Test

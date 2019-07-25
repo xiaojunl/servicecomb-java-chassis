@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -40,7 +38,7 @@ public class GroupExecutor implements Executor, Closeable {
   public static final String KEY_GROUP = "servicecomb.executor.default.group";
 
   // Deprecated
-  public static final String KEY_THREAD = "servicecomb.executor.default.thread-per-group";
+  public static final String KEY_OLD_MAX_THREAD = "servicecomb.executor.default.thread-per-group";
 
   public static final String KEY_CORE_THREADS = "servicecomb.executor.default.coreThreads-per-group";
 
@@ -73,24 +71,30 @@ public class GroupExecutor implements Executor, Closeable {
     initConfig();
 
     for (int groupIdx = 0; groupIdx < groupCount; groupIdx++) {
-      ThreadPoolExecutor executor = new ThreadPoolExecutor(coreThreads,
+      ThreadPoolExecutorEx executor = new ThreadPoolExecutorEx(coreThreads,
           maxThreads,
           maxIdleInSecond,
           TimeUnit.SECONDS,
-          new LinkedBlockingQueue<>(maxQueueSize));
+          new LinkedBlockingQueueEx<>(maxQueueSize));
       executorList.add(executor);
     }
   }
 
   public void initConfig() {
+    LOGGER.info("thread pool rules:\n"
+        + "1.use core threads.\n"
+        + "2.if all core threads are busy, then create new thread.\n"
+        + "3.if thread count reach the max limitation, then queue the request.\n"
+        + "4.if queue is full, and threads count is max, then reject the request.");
+
     groupCount = DynamicPropertyFactory.getInstance().getIntProperty(KEY_GROUP, 2).get();
     coreThreads = DynamicPropertyFactory.getInstance().getIntProperty(KEY_CORE_THREADS, 25).get();
 
     maxThreads = DynamicPropertyFactory.getInstance().getIntProperty(KEY_MAX_THREADS, -1).get();
     if (maxThreads <= 0) {
-      maxThreads = DynamicPropertyFactory.getInstance().getIntProperty(KEY_THREAD, -1).get();
+      maxThreads = DynamicPropertyFactory.getInstance().getIntProperty(KEY_OLD_MAX_THREAD, -1).get();
       if (maxThreads > 0) {
-        LOGGER.warn("{} is deprecated, recommended to use {}.", KEY_THREAD, KEY_MAX_THREADS);
+        LOGGER.warn("{} is deprecated, recommended to use {}.", KEY_OLD_MAX_THREAD, KEY_MAX_THREADS);
       } else {
         maxThreads = 100;
       }

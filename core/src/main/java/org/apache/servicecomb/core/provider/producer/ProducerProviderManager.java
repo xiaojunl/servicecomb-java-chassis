@@ -18,11 +18,11 @@
 package org.apache.servicecomb.core.provider.producer;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.servicecomb.core.BootListener;
 import org.apache.servicecomb.core.ProducerProvider;
 import org.apache.servicecomb.core.SCBEngine;
@@ -37,6 +37,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import io.swagger.models.Scheme;
+import io.swagger.models.Swagger;
+
 @Component
 public class ProducerProviderManager implements BootListener {
   private static final Logger LOGGER = LoggerFactory.getLogger(ProducerProviderManager.class);
@@ -50,19 +53,40 @@ public class ProducerProviderManager implements BootListener {
     for (ProducerProvider provider : producerProviderList) {
       provider.init();
     }
-    Microservice microservice = RegistryUtils.getMicroservice();
-    microserviceMeta = SCBEngine.getInstance().getProducerMicroserviceMeta();
-    for (SchemaMeta schemaMeta : microserviceMeta.getSchemaMetas()) {
-      String content = SchemaUtils.swaggerToString(schemaMeta.getSwagger());
-      microservice.addSchema(schemaMeta.getSchemaId(), content);
-    }
   }
 
   @Override
   public void onBootEvent(BootEvent event) {
-    if (!EventType.AFTER_CLOSE.equals(event.getEventType())) {
-      return;
+    switch (event.getEventType()) {
+      case AFTER_TRANSPORT:
+        registerSchemaToMicroservice();
+        break;
+      case AFTER_CLOSE:
+        onClose();
+        break;
     }
+  }
+
+  private void registerSchemaToMicroservice() {
+    Microservice microservice = RegistryUtils.getMicroservice();
+
+    String swaggerSchema = "http";
+    for (String endpoint : microservice.getInstance().getEndpoints()) {
+      if (endpoint.startsWith("rest://") && endpoint.indexOf("sslEnabled=true") > 0) {
+        swaggerSchema = "https";
+      }
+    }
+
+    microserviceMeta = SCBEngine.getInstance().getProducerMicroserviceMeta();
+    for (SchemaMeta schemaMeta : microserviceMeta.getSchemaMetas()) {
+      Swagger swagger = schemaMeta.getSwagger();
+      swagger.addScheme(Scheme.forValue(swaggerSchema));
+      String content = SchemaUtils.swaggerToString(swagger);
+      microservice.addSchema(schemaMeta.getSchemaId(), content);
+    }
+  }
+
+  private void onClose() {
     if (microserviceMeta == null) {
       return;
     }
@@ -73,7 +97,12 @@ public class ProducerProviderManager implements BootListener {
       }
 
       if (Closeable.class.isInstance(operationMeta.getExecutor())) {
-        IOUtils.closeQuietly((Closeable) operationMeta.getExecutor());
+        Closeable executor = (Closeable) operationMeta.getExecutor();
+        try {
+          executor.close();
+        } catch (final IOException ioe) {
+          // ignore
+        }
         continue;
       }
 

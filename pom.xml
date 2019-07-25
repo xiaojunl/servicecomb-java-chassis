@@ -29,7 +29,7 @@
 
   <groupId>org.apache.servicecomb</groupId>
   <artifactId>java-chassis</artifactId>
-  <version>1.2.0-SNAPSHOT</version>
+  <version>1.3.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>ServiceComb Java Chassis</name>
@@ -38,6 +38,8 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <java.version>1.8</java.version>
+    <argLine>-Dfile.encoding=UTF-8</argLine>
     <skip-remote-resource>true</skip-remote-resource>
   </properties>
 
@@ -104,8 +106,8 @@
   </distributionManagement>
 
   <modules>
-    <module>parent</module>
     <module>java-chassis-dependencies</module>
+    <module>parents</module>
     <module>common</module>
     <module>foundations</module>
     <module>deployment</module>
@@ -120,8 +122,9 @@
     <module>metrics</module>
     <module>dynamic-config</module>
     <module>archetypes</module>
-    <module>java-chassis-dependencies-springboot2</module>
     <module>java-chassis-spring-boot</module>
+    <module>inspector</module>
+    <module>solutions</module>
   </modules>
 
   <reporting>
@@ -169,7 +172,34 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>license-maven-plugin</artifactId>
-        <version>1.16</version>
+        <version>1.19</version>
+         <executions>
+           <execution>
+             <id>default-cli</id>
+             <configuration>
+               <!-- Accept the pom module -->
+               <acceptPomPackaging>true</acceptPomPackaging>
+               <!-- Using the template which is grouped by License file -->
+               <fileTemplate>/org/codehaus/mojo/license/third-party-file-groupByMultiLicense.ftl</fileTemplate>
+               <licenseMerges>
+                 <licenseMerge>The Apache Software License, Version 2.0|The Apache License, Version 2.0</licenseMerge>
+                 <licenseMerge>The Apache Software License, Version 2.0|Apache License, Version 2.0</licenseMerge>
+                 <licenseMerge>The Apache Software License, Version 2.0|Apache Public License 2.0</licenseMerge>
+                 <licenseMerge>The Apache Software License, Version 2.0|Apache 2</licenseMerge>
+                 <licenseMerge>The Apache Software License, Version 2.0|Apache 2.0</licenseMerge>
+                 <licenseMerge>The Apache Software License, Version 2.0|Apache-2.0</licenseMerge>
+                 <licenseMerge>The Apache Software License, Version 2.0|Apache License 2.0</licenseMerge>
+                 <licenseMerge>The Apache Software License, Version 2.0|Apache License, version 2.0</licenseMerge>
+                 <licenseMerge>3-Clause BSD License|BSD 3-clause</licenseMerge>
+                 <licenseMerge>3-Clause BSD License|BSD 3-Clause</licenseMerge>
+                 <licenseMerge>Eclipse Public License v1.0|Eclipse Public License 1.0</licenseMerge>
+                 <licenseMerge>Eclipse Public License v1.0|Eclipse Public License - v 1.0</licenseMerge>
+                 <licenseMerge>The MIT License|MIT License</licenseMerge>
+               </licenseMerges>
+               <excludedGroups>org.apache.servicecomb*</excludedGroups>
+             </configuration>
+           </execution>
+         </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.rat</groupId>
@@ -193,11 +223,13 @@
             <exclude>**/**.log</exclude>
             <!-- Skip the target files -->
             <exclude>**/target/**</exclude>
+            <!-- Skip web resource files -->
+            <exclude>**/resources/webroot/images/*.png</exclude>
+            <exclude>**/resources/webroot/images/*.jpg</exclude>
             <!-- Skip the source files which are forked from vertx -->
             <exclude>**/io/vertx/ext/web/impl/MimeTypesUtils.java</exclude>
             <exclude>**/io/vertx/core/impl/VertxImpl.java</exclude>
             <exclude>**/java/org/apache/servicecomb/transport/rest/vertx/RestBodyHandler.java</exclude>
-            <exclude>**/java/org/apache/servicecomb/foundation/vertx/stream/PumpImplEx.java</exclude>
             <!--Skip protobuf generated file-->
             <exclude>**/java/org/apache/servicecomb/foundation/protobuf/internal/model/ProtobufRoot.java</exclude>
           </excludes>
@@ -337,6 +369,8 @@
               <arg>-Xlint:all</arg>
               <!--not care for jdk8/jdk7 compatible problem-->
               <arg>-Xlint:-classfile</arg>
+              <!--not care for annotations not processed-->
+              <arg>-Xlint:-processing</arg>
             </compilerArgs>
           </configuration>
         </plugin>
